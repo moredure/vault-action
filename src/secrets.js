@@ -1,4 +1,5 @@
 const jsonata = require("jsonata");
+const core = require('@actions/core');
 
 
 /**
@@ -21,7 +22,7 @@ const jsonata = require("jsonata");
   * @param {import('got').Got} client
   * @return {Promise<SecretResponse<TRequest>[]>}
   */
-async function getSecrets(secretRequests, client) {
+async function getSecrets(secretRequests, client, continueOnNotFound) {
     const responseCache = new Map();
     const results = [];
     for (const secretRequest of secretRequests) {
@@ -41,7 +42,14 @@ async function getSecrets(secretRequests, client) {
             } catch (error) {
                 const {response} = error;
                 if (response?.statusCode === 404) {
-                    throw Error(`Unable to retrieve result for "${path}" because it was not found: ${response.body.trim()}`)
+                    notFoundMsg = `Unable to retrieve result for "${path}" because it was not found: ${response.body.trim()}`;
+                    const continueOnNotFound = (core.getInput('exportToken', { required: false }) || 'false').toLowerCase() != 'false';
+                    if (continueOnNotFound === true) {
+                        core.error(`✘ ${notFoundMsg}`);
+                        continue;
+                    } else {
+                        throw Error(notFoundMsg)
+                    }
                 }
                 throw error
             }
